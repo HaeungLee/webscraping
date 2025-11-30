@@ -1,0 +1,97 @@
+# WebScraping Automation Builder - Docker Compose
+# Development environment with PostgreSQL, Redis, and Firecrawl
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: webscraping-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-webscraping}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and Celery broker
+  redis:
+    image: redis:7-alpine
+    container_name: webscraping-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Firecrawl - Self-hosted web scraping engine
+  # See: https://github.com/mendableai/firecrawl
+  firecrawl:
+    image: ghcr.io/mendableai/firecrawl:latest
+    container_name: webscraping-firecrawl
+    restart: unless-stopped
+    environment:
+      # Optional: Your own Firecrawl API key for rate limiting
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      # Redis for queue management
+      REDIS_URL: redis://redis:6379
+      # Playwright settings
+      PLAYWRIGHT_HEADLESS: "true"
+      # Rate limiting
+      RATE_LIMIT_REQUESTS_PER_MINUTE: ${FIRECRAWL_RATE_LIMIT:-20}
+    ports:
+      - "3002:3002"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Backend API (Optional - can run locally for development)
+  # Uncomment to run backend in Docker
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: webscraping-backend
+  #   restart: unless-stopped
+  #   environment:
+  #     DATABASE_URL: postgresql://postgres:postgres@postgres:5432/webscraping
+  #     REDIS_URL: redis://redis:6379/0
+  #     FIRECRAWL_API_URL: http://firecrawl:3002
+  #     OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     firecrawl:
+  #       condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: webscraping-network
