@@ -20,10 +20,10 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     
     # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/webscraping"
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5433/webscraping"
     
     # Redis
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str = "redis://localhost:6380/0"
     
     # Firecrawl
     FIRECRAWL_API_URL: str = "http://localhost:3002"
